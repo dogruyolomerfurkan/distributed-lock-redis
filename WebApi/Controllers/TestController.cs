@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Distributed;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Hybrid;
 using StackExchange.Redis;
 using WebApi.DistributedLockStuff;
@@ -32,7 +30,7 @@ namespace WebApi.Controllers
                 var entryOptions = new HybridCacheEntryOptions
                 {
                     Expiration = TimeSpan.FromMinutes(10),
-                    LocalCacheExpiration = TimeSpan.FromSeconds(30)
+                    Flags = HybridCacheEntryFlags.DisableLocalCache
                 };
 
                 var result = await cache.GetOrCreateAsync(key: "COUNT",
@@ -46,7 +44,7 @@ namespace WebApi.Controllers
                     entryOptions,
                     cancellationToken: cancellationToken);
 
-                //logger.LogInformation("New count is {count}", intData);
+                logger.LogInformation("New count is {count}", intData);
 
                 return Ok();
             }
