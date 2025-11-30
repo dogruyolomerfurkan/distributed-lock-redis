@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Hybrid;
 using StackExchange.Redis;
 using WebApi.DistributedLockStuff;
 
@@ -8,7 +9,7 @@ namespace WebApi.Controllers
 {
     [Route("[controller]")]
     [ApiController]
-    public class TestController(IDistributedLockFactory lockFactory, ILogger<TestController> logger, IDistributedCache cache) : ControllerBase
+    public class TestController(IDistributedLockFactory lockFactory, ILogger<TestController> logger, HybridCache cache) : ControllerBase
     {
         [HttpGet]
         public async Task<IActionResult> TestConcurrentExecutions(CancellationToken cancellationToken)
@@ -27,22 +28,26 @@ namespace WebApi.Controllers
                     logger.LogWarning("Failed to acquire lock for count resource within timeout period");
                     return StatusCode(503, new { error = "Service temporarily unavailable. Please try again later." });
                 }
-                var result = await cache.GetStringAsync("COUNT", cancellationToken);
-                if (result == null)
+
+                var entryOptions = new HybridCacheEntryOptions
                 {
-                    await cache.SetStringAsync("COUNT", "0",
-                        new DistributedCacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.AddMinutes(1) },
-                        cancellationToken);
-                    logger.LogInformation("New count is {count}", "0");
-                }
-                else
-                {
-                    var intData = int.Parse(result) + 1;
-                    await cache.SetStringAsync("COUNT", intData.ToString(),
-                        new DistributedCacheEntryOptions { AbsoluteExpiration = DateTimeOffset.UtcNow.AddMinutes(1) },
-                        cancellationToken);
-                    logger.LogInformation("New count is {count}", intData);
-                }
+                    Expiration = TimeSpan.FromMinutes(10),
+                    LocalCacheExpiration = TimeSpan.FromSeconds(30)
+                };
+
+                var result = await cache.GetOrCreateAsync(key: "COUNT",
+                    factory: async cancel => 0,
+                    options: entryOptions,
+                    cancellationToken: cancellationToken);
+
+
+                var intData = result + 1;
+                await cache.SetAsync("COUNT", intData,
+                    entryOptions,
+                    cancellationToken: cancellationToken);
+
+                //logger.LogInformation("New count is {count}", intData);
+
                 return Ok();
             }
             catch (TaskCanceledException)
