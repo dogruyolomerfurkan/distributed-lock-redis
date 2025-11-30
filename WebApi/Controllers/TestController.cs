@@ -15,7 +15,7 @@ namespace WebApi.Controllers
             try
             {
                 await using var @lock = await lockFactory.AcquireAsync(
-                    resource: $"count",
+                    resource: "COUNT",
                     expiry: TimeSpan.FromSeconds(30),
                     wait: TimeSpan.FromSeconds(10),
                     retry: TimeSpan.FromMilliseconds(100),

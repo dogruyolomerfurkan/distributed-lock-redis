@@ -1,6 +1,4 @@
-﻿
-using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
+﻿using StackExchange.Redis;
 using System.Diagnostics;
 
 namespace WebApi.DistributedLockStuff;
@@ -121,7 +119,10 @@ public class DistributedLock : IDistributedLock
     public async ValueTask DisposeAsync()
     {
         if (_disposed || !IsAcquired)
+        {
+            GC.SuppressFinalize(this);
             return;
+        }
 
         _disposed = true;
 
@@ -137,6 +138,10 @@ public class DistributedLock : IDistributedLock
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error occurred while releasing lock for resource: {Resource}", Resource);
+        }
+        finally
+        {
+            GC.SuppressFinalize(this);
         }
     }
 
